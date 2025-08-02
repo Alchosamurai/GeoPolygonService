@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     debug: bool = False
     
     # Настройки базы данных
-    database_url: str = "postgresql://user:password@localhost:5432/geopolygon"
+    database_url: str = "postgresql://postgres:root@localhost:5432/GeoPoly"
     
     # Настройки Google Sheets
     google_service_account_file: str = "service-account-key.json"

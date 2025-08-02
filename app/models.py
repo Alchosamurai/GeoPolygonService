@@ -16,3 +16,8 @@ class PolygonResponse(BaseModel):
 class SpreadsheetResponse(BaseModel):
     spreadsheet_id: str
     url: str
+
+
+class CacheStatsResponse(BaseModel):
+    total_cached_polygons: int
+

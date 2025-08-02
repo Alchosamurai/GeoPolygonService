@@ -1,9 +1,18 @@
 from fastapi import FastAPI
-from app.routes import router
+from app.routes import router, sheets_router, cache_router, polygon_router
+from app.config import settings
+from app.database.database_init import init_database
 import logging
 from logging.handlers import RotatingFileHandler
 import sys
-from app.config import settings
+
+# Настройка логирования
+logging.basicConfig(
+    level=getattr(logging, settings.log_level),
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title=settings.app_name,
@@ -12,6 +21,23 @@ app = FastAPI(
 )
 
 app.include_router(router)
+app.include_router(polygon_router)
+app.include_router(sheets_router)
+app.include_router(cache_router)
+
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Инициализация при запуске"""
+    logger.info("Starting GeoPolygon API...")
+    try:
+        init_database()
+        logger.info("Database initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize database: {e}")
+        # Не прерываем запуск, так как база данных может быть недоступна
+
 
 def setup_logging():
     logging.basicConfig(
