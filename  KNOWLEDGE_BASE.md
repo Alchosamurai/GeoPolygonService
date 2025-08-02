@@ -19,9 +19,11 @@ GeoJSON - это формат для кодирования географиче
 {
   "type": "Feature",
   "properties": {},
-  "geometry": {
+  "geometry":
+  {
     "type": "Polygon",
-    "coordinates": [
+    "coordinates": 
+    [
       [
         [37.6176, 55.7558],
         [37.6180, 55.7558],
