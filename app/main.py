@@ -3,8 +3,13 @@ from app.routes import router
 import logging
 from logging.handlers import RotatingFileHandler
 import sys
+from app.config import settings
 
-app = FastAPI(title="GeoPolygon API", version="1.0.0")
+app = FastAPI(
+    title=settings.app_name,
+    version=settings.app_version,
+    debug=settings.debug
+)
 
 app.include_router(router)
 

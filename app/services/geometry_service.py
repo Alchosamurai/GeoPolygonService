@@ -4,14 +4,16 @@ from typing import Dict
 from shapely.geometry import Point, Polygon
 from shapely.ops import transform
 import pyproj
+from app.config import get_geometry_config
 
 logger = logging.getLogger(__name__)
 
 class GeometryService:
     def __init__(self):
         self.earth_radius = 6371000  # радиус Земли в метрах
+        self.config = get_geometry_config()
     
-    def create_circular_polygon(self, lat: float, lon: float, radius_meters: float, num_points: int = 64) -> Dict:
+    def create_circular_polygon(self, lat: float, lon: float, radius_meters: float, num_points: int = None) -> Dict:
         """
         Создает круговой полигон с заданным радиусом вокруг точки
         
@@ -24,6 +26,9 @@ class GeometryService:
         Returns:
             GeoJSON полигон
         """
+        if num_points is None:
+            num_points = self.config.get('default_points', 64)
+            
         center_point = Point(lon, lat)
         
         # Создаем круг в проекции UTM для точности
@@ -44,6 +49,8 @@ class GeometryService:
         # Конвертируем в GeoJSON
         coords = list(circle_wgs84.exterior.coords)
         
+        logger.debug(f"Created polygon with {len(coords)} points for coordinates ({lat}, {lon}) with radius {radius_meters}m")
+        
         return {
             "type": "Polygon",
             "coordinates": [coords]
@@ -62,7 +69,6 @@ class GeometryService:
         coords = polygon_geojson["coordinates"][0]
         polygon = Polygon(coords)
         
-
         # Используем равновеликую проекцию для точного расчета площади
         # center_lon = sum(coord[0] for coord in coords) / len(coords)
         # center_lat = sum(coord[1] for coord in coords) / len(coords)
@@ -73,7 +79,9 @@ class GeometryService:
         # Проверяем экстремальные случаи
         if abs(center_lat) > 85:
             # Для полюсов используем простую формулу площади
-            return self._calculate_simple_area(polygon_geojson)
+            area = self._calculate_simple_area(polygon_geojson)
+            logger.debug(f"Used simple area calculation for extreme coordinates: {area:.2f} m²")
+            return area
         
         # Ограничиваем значения широты для корректной работы проекции
         lat_1 = max(-85, center_lat - 5)
@@ -87,7 +95,10 @@ class GeometryService:
         transformer = pyproj.Transformer.from_proj(wgs84_proj, area_proj, always_xy=True)
         polygon_projected = transform(transformer.transform, polygon)
         
-        return polygon_projected.area
+        area = polygon_projected.area
+        logger.debug(f"Calculated polygon area using Albers projection: {area:.2f} m²")
+        
+        return area
     
     @staticmethod
     def calculate_albers_center_by_polygon(polygon: Polygon):
@@ -122,6 +133,7 @@ class GeometryService:
                 math.sin(lat1_rad) * math.sin(lat2_rad) * math.cos(dlon) +
                 math.cos(lat1_rad) * math.cos(lat2_rad)
             )
+        
         return area
     
     def _get_utm_projection(self, lon: float, lat: float) -> pyproj.Proj:
@@ -151,12 +163,14 @@ class GeometryService:
         Returns:
             True если координаты валидны
         """
-        return -90 <= lat <= 90 and -180 <= lon <= 180
+        is_valid = -90 <= lat <= 90 and -180 <= lon <= 180
+        if not is_valid:
+            logger.warning(f"Invalid coordinates: lat={lat}, lon={lon}")
+        return is_valid
     
     def validate_radius(self, radius_meters: float) -> bool:
         """
         Валидирует радиус
-        Ограничение на радиус до 50км
         
         Args:
             radius_meters: радиус в метрах
@@ -164,6 +178,8 @@ class GeometryService:
         Returns:
             True если радиус валиден
         """
-        #GSM (2G) - самая "дальнобойная" вышка, имеет радиус действия до 35 км в идеальных условиях
-        #Поставил ограничение на радиус полигона до 50к для меньшей нагрузки на сервис, а также для защиты от фрода)
-        return 0 < radius_meters <= 50000  
+        max_radius = self.config.get('max_radius', 50000.0)
+        is_valid = radius_meters > 0 and radius_meters <= max_radius
+        if not is_valid:
+            logger.warning(f"Invalid radius: {radius_meters}m (max: {max_radius}m)")
+        return is_valid  

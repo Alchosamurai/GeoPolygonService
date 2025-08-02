@@ -42,7 +42,13 @@ venv\Scripts\activate  # Windows
 pip install -r requirements.txt
 ```
 
-3. Запустите приложение:
+3. Настройте переменные окружения:
+```bash
+cp env.example .env
+# Отредактируйте .env файл с вашими настройками
+```
+
+4. Запустите приложение:
 ```bash
 python main.py
 ```
@@ -52,11 +58,24 @@ python main.py
 uvicorn app.main:app --reload
 ```
 
+## Настройка Google Sheets
+
+1. Создайте проект в Google Cloud Console
+2. Включите Google Sheets API
+3. Создайте сервисный аккаунт и скачайте ключ в формате JSON
+4. Поместите файл ключа в корень проекта как `service-account-key.json`
+5. Создайте Google таблицу через API или вручную и укажите её ID в переменной `GOOGLE_SPREADSHEET_ID`
+
 ## API Endpoints
 
+### Основные эндпоинты
 - `GET /` - главная страница
 - `GET /health` - проверка доступности сервиса
 - `POST /polygon` - создание полигона покрытия
+
+### Управление Google Sheets
+- `POST /spreadsheet` - создание новой Google таблицы
+- `GET /spreadsheet/url` - получение URL текущей таблицы
 
 ### Создание полигона
 
@@ -88,14 +107,30 @@ uvicorn app.main:app --reload
 }
 ```
 
+### Создание Google таблицы
+
+**POST** `/spreadsheet`
+
+**Ответ:**
+```json
+{
+  "spreadsheet_id": "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms",
+  "url": "https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"
+}
+```
+
 ## Особенности реализации
 
 - **Валидация**: координаты и радиус валидируются на входе
 - **Асинхронность**: запросы не блокируют друг друга
 - **Имитация долгого запроса**: новые запросы обрабатываются 5+ секунд
+- **Логирование**: все запросы записываются в Google Sheets
 - **Точная геометрия**: используется UTM проекция для создания точных круговых полигонов
 - **Расчет площади**: площадь вычисляется в квадратных метрах
 
 ## Документация API
 
 После запуска Swagger доступен по адресу: http://localhost:8000/docs 
+
+## Ссылка на гугл таблицу с логами 
+https://docs.google.com/spreadsheets/d/1RfBJV3OcWtf9M-jBxbkAXQsvUwpMvzHyjZRmwuIaM1Y/edit?usp=sharing
