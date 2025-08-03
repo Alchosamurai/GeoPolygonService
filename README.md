@@ -189,6 +189,7 @@ docker-compose down
 https://docs.google.com/spreadsheets/d/1RfBJV3OcWtf9M-jBxbkAXQsvUwpMvzHyjZRmwuIaM1Y/edit?usp=sharing
 
 *ВАЖНАЯ ИНФОРМАЦИЯ*
+
 Гугл может распознать, что мой ключ к апи утек в спободный доступ и заблочить его, 
 Если такое произошло и интеграция с гугл таблицами не работает, 
 Просьба написать мне, сегерю новый ключик
