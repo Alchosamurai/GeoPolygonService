@@ -20,13 +20,23 @@ class PostgisRepository:
             segments = settings.default_polygon_points
             
             def _create_polygon():
+                # Используем UTM проекцию для более точных расчетов
+                # Определяем UTM зону на основе долготы
+                utm_zone = int((lon + 180) / 6) + 1
+                epsg_code = 32600 + utm_zone if lat >= 0 else 32700 + utm_zone
+                
+                # Для крайних случаев используем более безопасную проекцию
+                if abs(lat) > 80 or abs(lon) > 175:
+                    # Используем полярную стереографическую проекцию для крайних случаев
+                    epsg_code = 3413 if lat > 0 else 3412  # NSIDC Sea Ice Polar Stereographic
+                
                 query = f"""
                     WITH circle AS (
                         SELECT 
                             ST_Buffer(
                                 ST_Transform(
                                     ST_SetSRID(ST_MakePoint({lon}, {lat}), 4326),
-                                    3857  -- Проекция Web Mercator для работы в метрах
+                                    {epsg_code}  -- Более подходящая проекция
                                 ),
                                 {radius_meters},
                                 {segments}  -- Количество сегментов для аппроксимации круга
