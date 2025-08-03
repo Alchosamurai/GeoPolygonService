@@ -29,6 +29,35 @@ FastAPI приложение для создания полигонов покр
 
 ## Установка и запуск
 
+### Предварительные требования
+
+1. **PostgreSQL с расширением PostGIS**
+   
+   **Ubuntu/Debian:**
+   ```bash
+   sudo apt update
+   sudo apt install postgresql postgresql-contrib postgis
+   ```
+   
+   **macOS (с Homebrew):**
+   ```bash
+   brew install postgresql postgis
+   ```
+   
+   **Windows:** Скачайте с официального сайта PostgreSQL
+
+2. **Настройка PostgreSQL:**
+   ```bash
+   # Создайте пользователя и базу данных
+   sudo -u postgres psql
+   CREATE USER postgres WITH PASSWORD 'password';
+   CREATE DATABASE geopolygon;
+   GRANT ALL PRIVILEGES ON DATABASE geopolygon TO postgres;
+   \q
+   ```
+
+### Установка приложения
+
 1. Создайте виртуальное окружение:
 ```bash
 python -m venv venv
@@ -48,7 +77,12 @@ cp env.example .env
 # Отредактируйте .env файл с вашими настройками
 ```
 
-4. Запустите приложение:
+4. Инициализируйте базу данных:
+```bash
+python init_db.py
+```
+
+5. Запустите приложение:
 ```bash
 python main.py
 ```
@@ -57,6 +91,39 @@ python main.py
 ```bash
 uvicorn app.main:app --reload
 ```
+
+### Запуск с Docker
+
+1. **Установите Docker и Docker Compose**
+
+2. **Запустите приложение:**
+```bash
+docker-compose up -d
+```
+
+3. **Проверьте логи:**
+```bash
+docker-compose logs -f app
+```
+
+4. **Остановите приложение:**
+```bash
+docker-compose down
+```
+
+## Тестирование
+
+После запуска приложения можно проверить его работу:
+
+```bash
+python test_api.py
+```
+
+Этот скрипт проверит:
+- Доступность сервиса
+- Создание полигона
+- Работу кэша
+- Интеграцию с Google Sheets
 
 ## Настройка Google Sheets
 

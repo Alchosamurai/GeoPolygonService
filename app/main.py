@@ -32,8 +32,14 @@ async def startup_event():
     """Инициализация при запуске"""
     logger.info("Starting GeoPolygon API...")
     try:
+        # Инициализируем базу данных с PostGIS
+        from init_db import init_postgis_database
+        init_postgis_database()
+        logger.info("PostGIS database initialized successfully")
+        
+        # Создаем таблицы приложения
         init_database()
-        logger.info("Database initialized successfully")
+        logger.info("Application tables created successfully")
     except Exception as e:
         logger.error(f"Failed to initialize database: {e}")
         # Не прерываем запуск, так как база данных может быть недоступна
