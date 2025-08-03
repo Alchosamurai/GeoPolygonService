@@ -50,9 +50,9 @@ FastAPI приложение для создания полигонов покр
    ```bash
    # Создайте пользователя и базу данных
    sudo -u postgres psql
-   CREATE USER postgres WITH PASSWORD 'password';
-   CREATE DATABASE geopolygon;
-   GRANT ALL PRIVILEGES ON DATABASE geopolygon TO postgres;
+   CREATE USER gis_user WITH PASSWORD 'root';
+   CREATE DATABASE postgis;
+   GRANT ALL PRIVILEGES ON DATABASE postgis TO gis_user;
    \q
    ```
 
