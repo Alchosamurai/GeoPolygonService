@@ -111,20 +111,6 @@ docker-compose logs -f app
 docker-compose down
 ```
 
-## Тестирование
-
-После запуска приложения можно проверить его работу:
-
-```bash
-python test_api.py
-```
-
-Этот скрипт проверит:
-- Доступность сервиса
-- Создание полигона
-- Работу кэша
-- Интеграцию с Google Sheets
-
 ## Настройка Google Sheets
 
 1. Создайте проект в Google Cloud Console
@@ -201,3 +187,8 @@ python test_api.py
 
 ## Ссылка на гугл таблицу с логами 
 https://docs.google.com/spreadsheets/d/1RfBJV3OcWtf9M-jBxbkAXQsvUwpMvzHyjZRmwuIaM1Y/edit?usp=sharing
+
+*ВАЖНАЯ ИНФОРМАЦИЯ*
+Гугл может распознать, что мой ключ к апи утек в спободный доступ и заблочить его, 
+Если такое произошло и интеграция с гугл таблицами не работает, 
+Просьба написать мне, сегерю новый ключик
