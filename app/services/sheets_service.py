@@ -39,7 +39,7 @@ class SheetsService:
         except Exception as e:
             logger.error(f"Error initializing Google Sheets service: {e}")
     
-    def log_request(self, lat: float, lon: float, radius_meters: float, area_sqm: float) -> bool:
+    async def log_request(self, lat: float, lon: float, radius_meters: float, area_sqm: float) -> bool:
         """
         Записывает информацию о запросе в Google Sheets
         

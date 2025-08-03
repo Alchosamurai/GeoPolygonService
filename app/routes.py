@@ -100,7 +100,7 @@ async def get_cache_stats():
     """Возвращает статистику кэша"""
     logger.debug("Getting cache statistics")
     
-    stats = polygon_service.get_cache_stats()
+    stats = await polygon_service.get_cache_stats()
     return CacheStatsResponse(**stats)
 
 
@@ -109,7 +109,7 @@ async def clear_cache():
     """Очищает весь кэш"""
     logger.info("Clearing cache")
     
-    deleted_count = polygon_service.clear_cache()
+    deleted_count = await polygon_service.clear_cache()
     logger.info(f"Cleared {deleted_count} cache entries")
     
     return {"deleted_entries": deleted_count}

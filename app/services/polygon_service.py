@@ -36,16 +36,15 @@ class PolygonService:
             raise ValueError("Некорректный радиус")
         
         # Проверяем кэш
-        cached_polygon = self.cache_service.get_cached_polygon(lat, lon, radius_meters)
-        if cached_polygon:
-            area = self.geometry_service.calculate_polygon_area(cached_polygon)
+        cached_result = await self.cache_service.get_cached_polygon(lat, lon, radius_meters)
+        if cached_result:
             # Логируем кэшированный запрос в Google Sheets
-            asyncio.create_task(self._log_to_sheets(lat, lon, radius_meters, area))
+            asyncio.create_task(self._log_to_sheets(lat, lon, radius_meters, cached_result["area"]))
             logger.info(f"Returning cached polygon for coordinates ({lat}, {lon}) with radius {radius_meters}m")
             return {
-                "polygon": cached_polygon,
+                "polygon": cached_result["polygon"],
                 "cached": True,
-                "area": area
+                "area": cached_result["area"]
             }
         
         # Имитируем долгий запрос
@@ -53,14 +52,14 @@ class PolygonService:
         
         try:
             # Создаем полигон в базе данных
-            db_result = self.postgis_repository.create_polygon(lat, lon, radius_meters)
+            db_result = await self.postgis_repository.create_polygon(lat, lon, radius_meters)
             
             # Используем результат из базы данных
             polygon = db_result["geometry"]
             area = db_result["area_sqm"]
             
             # Кэшируем результат
-            self.cache_service.cache_polygon(lat, lon, radius_meters, polygon, area)
+            await self.cache_service.cache_polygon(lat, lon, radius_meters, polygon, area)
             
             # Логируем в Google Sheets (асинхронно)
             asyncio.create_task(self._log_to_sheets(lat, lon, radius_meters, area))
@@ -72,13 +71,13 @@ class PolygonService:
                 "area": area
             }
         except Exception as e:
-            logger.error(f"Error creating polygon: {e}")
+            logger.error(f"Error creating polygon in db: {e}")
             # Fallback к локальному созданию полигона
             polygon = self.geometry_service.create_circular_polygon(lat, lon, radius_meters)
             area = self.geometry_service.calculate_polygon_area(polygon)
             
             # Кэшируем результат
-            self.cache_service.cache_polygon(lat, lon, radius_meters, polygon, area)
+            await self.cache_service.cache_polygon(lat, lon, radius_meters, polygon, area)
             
             # Логируем в Google Sheets (асинхронно)
             asyncio.create_task(self._log_to_sheets(lat, lon, radius_meters, area))
@@ -101,27 +100,27 @@ class PolygonService:
             area: площадь полигона
         """
         try:
-            self.sheets_service.log_request(lat, lon, radius_meters, area)
+            await self.sheets_service.log_request(lat, lon, radius_meters, area)
         except Exception as e:
             logger.error(f"Error logging to sheets: {e}")
     
-    def get_cache_stats(self) -> Dict:
+    async def get_cache_stats(self) -> Dict:
         """
         Получает статистику кэша
         
         Returns:
             Статистика кэша
         """
-        return self.cache_service.get_cache_stats()
+        return await self.cache_service.get_cache_stats()
     
-    def clear_cache(self) -> int:
+    async def clear_cache(self) -> int:
         """
         Очищает весь кэш
         
         Returns:
             Количество удаленных записей
         """
-        return self.cache_service.clear_cache()
+        return await self.cache_service.clear_cache()
     
     def create_spreadsheet(self) -> Optional[str]:
         """

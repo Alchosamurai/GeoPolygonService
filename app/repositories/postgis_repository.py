@@ -1,9 +1,7 @@
 import json
+import asyncio
 from typing import Optional, Dict, List
-from sqlalchemy.orm import Session
-from sqlalchemy import func, text
-from app.database.models import CacheEntry
-from app.database.database import get_db, engine
+from app.database.database import engine
 import geopandas as gpd
 import logging
 
@@ -11,51 +9,55 @@ logger = logging.getLogger(__name__)
 
 class PostgisRepository:
     def __init__(self):
-        self.db = next(get_db())
+        pass
     
-    def create_polygon(self, lat: float, lon: float, radius_meters: float) -> Dict:
+    async def create_polygon(self, lat: float, lon: float, radius_meters: float) -> Dict:
         """
-        Создает полигон в базе данных
+        Создает полигон силами базы данных, возвращает геометрию и площадь в метрах
         """
         try:
             from app.config import settings
             segments = settings.default_polygon_points
-            query = """
-                WITH circle AS (
+            
+            def _create_polygon():
+                query = f"""
+                    WITH circle AS (
+                        SELECT 
+                            ST_Buffer(
+                                ST_Transform(
+                                    ST_SetSRID(ST_MakePoint({lon}, {lat}), 4326),
+                                    3857  -- Проекция Web Mercator для работы в метрах
+                                ),
+                                {radius_meters},
+                                {segments}  -- Количество сегментов для аппроксимации круга
+                            ) AS geom
+                    )
                     SELECT 
-                        ST_Buffer(
-                            ST_Transform(
-                                ST_SetSRID(ST_MakePoint(%s, %s), 4326),
-                                3857  -- Проекция Web Mercator для работы в метрах
-                            ),
-                            %s,
-                            %s  -- Количество сегментов для аппроксимации круга
-                        ) AS geom
-                )
-                SELECT 
-                    ST_Transform(geom, 4326) AS geom,
-                    ST_Area(geom) AS area
-                FROM circle;
-                """
+                        ST_Transform(geom, 4326) AS geom,
+                        ST_Area(geom) AS area
+                    FROM circle;
+                    """
+                
+                # Используем engine напрямую для geopandas
+                result = gpd.read_postgis(query, engine, geom_col='geom')
+                
+                # Получаем геометрию и площадь из результата
+                geom = result['geom'].iloc[0]
+                area = float(result['area'].iloc[0])
+                
+                # Преобразуем геометрию в GeoJSON
+                geom_json = {
+                    "type": geom.geom_type,
+                    "coordinates": geom.__geo_interface__["coordinates"]
+                }
+                
+                return {
+                    "geometry": geom_json,
+                    "area_sqm": area
+                }
             
-            # Используем engine напрямую для geopandas с параметрами
-            result = gpd.read_postgis(query, engine, params=(lon, lat, radius_meters, segments), geom_col='geom')
-            
-            # Получаем геометрию и площадь из результата
-            geom = result['geom'].iloc[0]
-            area = float(result['area'].iloc[0])
-            
-            # Преобразуем геометрию в GeoJSON
-            geom_json = {
-                "type": geom.geom_type,
-                "coordinates": geom.__geo_interface__["coordinates"]
-            }
-            
-            result_dict = {
-                "geometry": geom_json,
-                "area_sqm": area
-            }
-            return result_dict
+            loop = asyncio.get_event_loop()
+            return await loop.run_in_executor(None, _create_polygon)
             
         except Exception as e:
             logger.error(f"Error creating polygon in database: {e}")

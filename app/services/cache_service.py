@@ -31,7 +31,7 @@ class CacheService:
         json_str = json.dumps(data, sort_keys=True)
         return hashlib.sha256(json_str.encode()).hexdigest()
     
-    def get_cached_polygon(self, lat: float, lon: float, radius_meters: float) -> Optional[Dict]:
+    async def get_cached_polygon(self, lat: float, lon: float, radius_meters: float) -> Optional[Dict]:
         """
         Получает полигон из кэша
         
@@ -45,12 +45,15 @@ class CacheService:
         """
         cache_key = self._generate_cache_key(lat, lon, radius_meters)
         
-        cache_entry = self.repository.get_by_cache_key(cache_key)
+        cache_entry = await self.repository.get_by_cache_key(cache_key)
         if cache_entry:
             try:
                 polygon_data = json.loads(cache_entry.polygon_data)
                 logger.info(f"Cache hit for coordinates ({lat}, {lon}) with radius {radius_meters}m")
-                return polygon_data
+                return {
+                    "polygon": polygon_data,
+                    "area": cache_entry.area_sqm
+                }
             except json.JSONDecodeError as e:
                 logger.error(f"Error parsing cached polygon data: {e}")
                 return None
@@ -79,7 +82,7 @@ class CacheService:
         return None
 
 
-    def cache_polygon(self, lat: float, lon: float, radius_meters: float, polygon_data: Dict, area: float) -> None:
+    async def cache_polygon(self, lat: float, lon: float, radius_meters: float, polygon_data: Dict, area: float) -> None:
         """
         Сохраняет полигон в кэш
         
@@ -93,7 +96,7 @@ class CacheService:
         cache_key = self._generate_cache_key(lat, lon, radius_meters)
         
         try:
-            self.repository.create_cache_entry(
+            await self.repository.create_cache_entry(
                 cache_key=cache_key,
                 lat=lat,
                 lon=lon,
@@ -105,23 +108,23 @@ class CacheService:
         except Exception as e:
             logger.error(f"Error caching polygon: {e}")
     
-    def get_cache_stats(self) -> Dict[str, Any]:
+    async def get_cache_stats(self) -> Dict[str, Any]:
         """
         Получает статистику кэша
         
         Returns:
             Статистика кэша
         """
-        return self.repository.get_cache_stats()
+        return await self.repository.get_cache_stats()
     
-    def clear_cache(self) -> int:
+    async def clear_cache(self) -> int:
         """
         Очищает весь кэш
         
         Returns:
             Количество удаленных записей
         """
-        return self.repository.clear_cache()
+        return await self.repository.clear_cache()
     
     def delete_cache_entry(self, lat: float, lon: float, radius_meters: float) -> bool:
         """

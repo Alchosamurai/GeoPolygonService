@@ -1,4 +1,5 @@
 import json
+import asyncio
 from typing import Optional, Dict, List
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -13,7 +14,7 @@ class CacheRepository:
     def __init__(self):
         pass
     
-    def get_by_cache_key(self, cache_key: str) -> Optional[CacheEntry]:
+    async def get_by_cache_key(self, cache_key: str) -> Optional[CacheEntry]:
         """
         Получает запись кэша по ключу
         
@@ -23,18 +24,22 @@ class CacheRepository:
         Returns:
             Запись кэша или None
         """
-        db = next(get_db())
-        try:
-            cache_entry = db.query(CacheEntry).filter(CacheEntry.cache_key == cache_key).first()
-            if cache_entry:
-                logger.debug(f"Cache hit for key: {cache_key}")
-            else:
-                logger.debug(f"Cache miss for key: {cache_key}")
-            return cache_entry
-        finally:
-            db.close()
+        def _get_cache_entry():
+            db = next(get_db())
+            try:
+                cache_entry = db.query(CacheEntry).filter(CacheEntry.cache_key == cache_key).first()
+                if cache_entry:
+                    logger.debug(f"Cache hit for key: {cache_key}")
+                else:
+                    logger.debug(f"Cache miss for key: {cache_key}")
+                return cache_entry
+            finally:
+                db.close()
+        
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, _get_cache_entry)
     
-    def create_cache_entry(self, cache_key: str, lat: float, lon: float, 
+    async def create_cache_entry(self, cache_key: str, lat: float, lon: float, 
                           radius_meters: float, polygon_data: Dict, area: float) -> CacheEntry:
         """
         Создает новую запись в кэше
@@ -50,67 +55,79 @@ class CacheRepository:
         Returns:
             Созданная запись кэша
         """
-        db = next(get_db())
-        try:
-            cache_entry = CacheEntry(
-                cache_key=cache_key,
-                latitude=lat,
-                longitude=lon,
-                radius_meters=radius_meters,
-                polygon_data=json.dumps(polygon_data),
-                area_sqm=area
-            )
-            db.add(cache_entry)
-            db.commit()
-            db.refresh(cache_entry)
-            
-            logger.info(f"Created cache entry for key: {cache_key}")
-            return cache_entry
-        finally:
-            db.close()
+        def _create_cache_entry():
+            db = next(get_db())
+            try:
+                cache_entry = CacheEntry(
+                    cache_key=cache_key,
+                    latitude=lat,
+                    longitude=lon,
+                    radius_meters=radius_meters,
+                    polygon_data=json.dumps(polygon_data),
+                    area_sqm=area
+                )
+                db.add(cache_entry)
+                db.commit()
+                db.refresh(cache_entry)
+                
+                logger.info(f"Created cache entry for key: {cache_key}")
+                return cache_entry
+            finally:
+                db.close()
+        
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, _create_cache_entry)
     
-    def get_cache_stats(self) -> Dict[str, int]:
+    async def get_cache_stats(self) -> Dict[str, int]:
         """
         Получает статистику кэша
         
         Returns:
             Словарь со статистикой
         """
-        db = next(get_db())
-        try:
-            total_entries = db.query(CacheEntry).count()
-            
-            # Статистика по радиусам
-            radius_stats = db.query(
-                CacheEntry.radius_meters,
-                func.count(CacheEntry.id)
-            ).group_by(CacheEntry.radius_meters).all()
-            
-            logger.debug(f"Cache stats: {total_entries} total entries")
-            
-            return {
-                "total_cached_polygons": total_entries,
-                "radius_distribution": dict(radius_stats)
-            }
-        finally:
-            db.close()
+        def _get_cache_stats():
+            db = next(get_db())
+            try:
+                total_entries = db.query(CacheEntry).count()
+                
+                # Статистика по радиусам
+                radius_stats = db.query(
+                    CacheEntry.radius_meters,
+                    func.count(CacheEntry.id)
+                ).group_by(CacheEntry.radius_meters).all()
+                
+                logger.debug(f"Cache stats: {total_entries} total entries")
+                
+                return {
+                    "total_cached_polygons": total_entries,
+                    "radius_distribution": dict(radius_stats)
+                }
+            finally:
+                db.close()
+        
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, _get_cache_stats)
     
-    def clear_cache(self) -> int:
+    async def clear_cache(self) -> int:
         """
         Очищает весь кэш
         
         Returns:
             Количество удаленных записей
         """
-        db = next(get_db())
-        try:
-            deleted_count = db.query(CacheEntry).delete()
-            db.commit()
-            
-            logger.info(f"Cleared cache: {deleted_count} entries deleted")
-            return deleted_count
-        finally:
-            db.close()
+        def _clear_cache():
+            db = next(get_db())
+            try:
+                deleted_count = db.query(CacheEntry).delete()
+                db.commit()
+                
+                logger.info(f"Cleared cache: {deleted_count} entries deleted")
+                return deleted_count
+            finally:
+                db.close()
+        
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, _clear_cache)
     
     def get_oldest_entries(self, limit: int = 10) -> List[CacheEntry]:
         """
