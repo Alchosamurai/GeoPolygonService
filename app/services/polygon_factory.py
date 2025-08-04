@@ -23,17 +23,18 @@ class CirclePolygon:
     async def _create_polygon(self) -> None:
         try:
             await self._create_polygon_by_postgis()
-        except:
-            logger.warning(f"Ошибка построение полигона lat={self.lat}, lon={self.lon}, rad={self.radius_m} в postGIS, построение через pyproj")
+        except Exception as e:
+            logger.warning(f"Ошибка построения полигона lat={self.lat}, lon={self.lon}, rad={self.radius_m} в postGIS: {e}, построение через pyproj")
             self._create_polygon_by_pyproj()
 
     def _create_polygon_by_pyproj(self)-> None:
+        """Создает полигон локально через pyproj"""
         self._geoJSON = self._geometry_service.create_circular_polygon(self.lat, self.lon, self.radius_m, self.points)
-        self._area = self._geometry_service.calculate_polygon_area(self.geoJSON)
+        self._area = self._geometry_service.calculate_polygon_area(self._geoJSON)
 
     async def _create_polygon_by_postgis(self) -> None:
         """
-        Создает апроксимирующий круг полигон\n
+        Создает апроксимирующий круг полигон через PostGIS
         Заполняет атрибуты класса
         """
         response = await self._postgis.create_circle_polygon_with_area(self.lat, self.lon, self.radius_m)
@@ -47,6 +48,7 @@ class CirclePolygon:
         await self._create_polygon()
 
     def get_geojson_with_area(self) -> Dict:
+        """Возвращает результат с площадью"""
         return {
             "polygon": self._geoJSON,
             "cached": False,
@@ -60,3 +62,10 @@ class CirclePolygon:
     @property
     def area(self) -> float:
         return self._area
+
+    def __str__(self) -> str:
+        area_str = f"{self.area:.2f}m²" if self.area is not None else "не рассчитана"
+        return f"CirclePolygon(center=({self.lat}, {self.lon}), radius={self.radius_m}m, area={area_str})"
+
+    def __repr__(self) -> str:
+        return self.__str__()
