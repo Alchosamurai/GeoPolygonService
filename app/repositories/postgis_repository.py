@@ -11,7 +11,7 @@ class PostgisRepository:
     def __init__(self):
         pass
     
-    async def create_polygon(self, lat: float, lon: float, radius_meters: float) -> Dict:
+    async def create_circle_polygon_with_area(self, lat: float, lon: float, radius_meters: float) -> Dict:
         """
         Создает полигон силами базы данных, возвращает геометрию и площадь в метрах
         """

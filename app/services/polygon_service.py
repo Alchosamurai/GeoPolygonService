@@ -4,6 +4,7 @@ from app.services.geometry_service import GeometryService
 from app.services.cache_service import CacheService
 from app.services.sheets_service import SheetsService
 from app.repositories.postgis_repository import PostgisRepository
+from app.services.polygon_factory import CirclePolygon
 from app.config import settings
 import logging
 
@@ -16,6 +17,7 @@ class PolygonService:
         self.cache_service = CacheService()
         self.sheets_service = SheetsService()
         self.postgis_repository = PostgisRepository()
+
     async def create_polygon(self, lat: float, lon: float, radius_meters: float) -> Dict:
         """
         Создает полигон покрытия с заданными параметрами
@@ -50,45 +52,24 @@ class PolygonService:
         # Имитируем долгий запрос
         await asyncio.sleep(settings.async_sleep_seconds)
         
-        try:
-            # Создаем полигон в базе данных
-            db_result = await self.postgis_repository.create_polygon(lat, lon, radius_meters)
-            
-            # Используем результат из базы данных
-            polygon = db_result["geometry"]
-            area = db_result["area_sqm"]
-            
-            # Кэшируем результат
-            await self.cache_service.cache_polygon(lat, lon, radius_meters, polygon, area)
-            
-            # Логируем в Google Sheets (асинхронно)
-            asyncio.create_task(self._log_to_sheets(lat, lon, radius_meters, area))
-            
-            logger.info(f"Created new polygon for coordinates ({lat}, {lon}) with radius {radius_meters}m")
-            return {
-                "polygon": polygon,
-                "cached": False,
-                "area": area
-            }
-        except Exception as e:
-            logger.error(f"Error creating polygon in db: {e}")
-            # Fallback к локальному созданию полигона
-            polygon = self.geometry_service.create_circular_polygon(lat, lon, radius_meters)
-            area = self.geometry_service.calculate_polygon_area(polygon)
-            
-            # Кэшируем результат
-            await self.cache_service.cache_polygon(lat, lon, radius_meters, polygon, area)
-            
-            # Логируем в Google Sheets (асинхронно)
-            asyncio.create_task(self._log_to_sheets(lat, lon, radius_meters, area))
-            
-            logger.info(f"Created polygon using fallback for coordinates ({lat}, {lon}) with radius {radius_meters}m")
-            return {
-                "polygon": polygon,
-                "cached": False,
-                "area": area
-            }
-    
+
+        circle_polygon = CirclePolygon(lat, lon, radius_meters)
+        await circle_polygon.initialize()
+        result = circle_polygon.get_geojson_with_area()
+        
+        # Кэшируем результат
+        await self.cache_service.cache_polygon(lat, lon, radius_meters, result["polygon"], result["area"])
+        
+        # Логируем в Google Sheets (асинхронно)
+        asyncio.create_task(self._log_to_sheets(lat, lon, radius_meters, result["area"]))
+        
+        logger.info(f"Created new polygon for coordinates ({lat}, {lon}) with radius {radius_meters}m")
+        return {
+            "polygon": result["polygon"],
+            "cached": False,
+            "area": result["area"]
+        }
+
     async def _log_to_sheets(self, lat: float, lon: float, radius_meters: float, area: float):
         """
         Асинхронно логирует запрос в Google Sheets
@@ -103,7 +84,7 @@ class PolygonService:
             await self.sheets_service.log_request(lat, lon, radius_meters, area)
         except Exception as e:
             logger.error(f"Error logging to sheets: {e}")
-    
+
     async def get_cache_stats(self) -> Dict:
         """
         Получает статистику кэша
@@ -112,7 +93,7 @@ class PolygonService:
             Статистика кэша
         """
         return await self.cache_service.get_cache_stats()
-    
+
     async def clear_cache(self) -> int:
         """
         Очищает весь кэш
@@ -121,7 +102,7 @@ class PolygonService:
             Количество удаленных записей
         """
         return await self.cache_service.clear_cache()
-    
+
     def create_spreadsheet(self) -> Optional[str]:
         """
         Создает новую Google таблицу для логирования
@@ -130,7 +111,7 @@ class PolygonService:
             ID созданной таблицы
         """
         return self.sheets_service.create_spreadsheet()
-    
+
     def get_spreadsheet_url(self) -> Optional[str]:
         """
         Возвращает URL Google таблицы

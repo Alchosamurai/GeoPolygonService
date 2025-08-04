@@ -1,10 +1,10 @@
 import math
-import logging
 from typing import Dict
 from shapely.geometry import Point, Polygon
 from shapely.ops import transform
 import pyproj
 from app.config import get_geometry_config
+import logging
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +25,12 @@ class GeometryService:
             
         Returns:
             GeoJSON полигон
+            ```
+            {
+            "type": "Polygon",
+            "coordinates": [coords]
+            }
+            ```
         """
         if num_points is None:
             num_points = self.config.get('default_points', 64)
